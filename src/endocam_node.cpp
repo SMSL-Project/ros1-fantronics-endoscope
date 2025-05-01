@@ -1,4 +1,3 @@
-// src/supercamera_node.cpp
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
@@ -13,9 +12,6 @@
 #include <thread>
 #include <functional>
 
-//------------------------------------------------------------------------------
-// Your original UsbSupercamera (unchanged)
-//------------------------------------------------------------------------------
 using byteVector = std::vector<uint8_t>;
 
 class UsbSupercamera
@@ -81,7 +77,6 @@ public:
     UsbSupercamera()
     {
         if (setup() != 0) throw std::runtime_error("Failed to init USB camera");
-        // Magic commands
         usb_write(ENDPOINT_2, byteVector{0xFF,0x55,0xFF,0x55,0xEE,0x10});
         usb_write(ENDPOINT_1, byteVector{0xBB,0xAA,5,0,0});
     }
@@ -98,9 +93,6 @@ public:
     }
 };
 
-//------------------------------------------------------------------------------
-// Your original UPPCamera (unchanged)
-//------------------------------------------------------------------------------
 class UPPCamera
 {
     struct [[gnu::packed]] upp_usb_frame_t {
@@ -150,9 +142,6 @@ public:
     }
 };
 
-//------------------------------------------------------------------------------
-// ROS node
-//------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "supercamera_node");
