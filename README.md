@@ -1,7 +1,6 @@
 # ros1_fantronics_endoscope
 
-A ROS Noetic node for the Geek szitman “supercamera” endoscope, delivering a live image stream on `/supercamera/image_raw`.
-
+A ROS Noetic node for the Geek szitman "supercamera" endoscope, delivering a live image stream. Supports multiple endoscopes simultaneously.
 
 ## Prerequisite
 
@@ -44,8 +43,63 @@ Once you finished all the steps, clone this repo to ${YOUR WORKSPACE}/src by:
 git clone git@github.com:SMSL-Project/ros1_fantronics_endoscope.git
 ```
 
-Build it with `catkin build`, source the workspace, and run it with
+Build it with `catkin build`, source the workspace.
+
+### Auto-detection Mode (Recommended)
+
+Simply run the node without parameters to auto-detect all connected endoscopes:
+
 ```bash
 rosrun ros1_fantronics_endoscope endocam
 ```
-You will find the images are streamed to rostopic `/supercamera/image_raw`
+
+The node will automatically detect all connected endoscopes and start publishing images on separate topics:
+- `/supercamera/camera0/image_raw`
+- `/supercamera/camera1/image_raw`
+- ...etc.
+
+### Manual Configuration Mode
+
+If you want more control over the specific cameras, you can use the following parameters:
+
+```bash
+rosrun ros1_fantronics_endoscope endocam _num_cameras:=2 _camera0/bus:=1 _camera0/device:=9 _camera0/name:=left_camera _camera1/bus:=1 _camera1/device:=10 _camera1/name:=right_camera
+```
+
+This will initialize two cameras with custom names and specific USB bus/device addresses. The images will be published on:
+- `/supercamera/left_camera/image_raw`
+- `/supercamera/right_camera/image_raw`
+
+## Identifying USB Device Information
+
+To determine the USB bus number and device address for your endoscopes, you can use:
+
+```bash
+lsusb | grep 2ce3:3828
+```
+
+This will output something like:
+```
+Bus 001 Device 009: ID 2ce3:3828 ...
+Bus 001 Device 010: ID 2ce3:3828 ...
+```
+
+Use these bus and device numbers in your launch configuration.
+
+## Launch File Example
+
+Create a launch file for multiple cameras:
+
+```xml
+<launch>
+  <node name="endocam" pkg="ros1_fantronics_endoscope" type="endocam" output="screen">
+    <param name="num_cameras" value="2"/>
+    <param name="camera0/name" value="left_camera"/>
+    <param name="camera0/bus" value="1"/>
+    <param name="camera0/device" value="9"/>
+    <param name="camera1/name" value="right_camera"/>
+    <param name="camera1/bus" value="1"/>
+    <param name="camera1/device" value="10"/>
+  </node>
+</launch>
+```

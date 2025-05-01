@@ -26,10 +26,10 @@ ${LIBUSB_INCLUDE_DIRS}
 
 link_directories(${LIBUSB_LIBRARY_DIRS})
 
-add_executable(endocam src/endocam_node.cpp)
+add_executable(supercamera_node src/endocam_node.cpp)
 
 
-target_link_libraries(endocam
+target_link_libraries(supercamera_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${LIBUSB_LIBRARIES}

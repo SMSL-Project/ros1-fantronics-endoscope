@@ -1,0 +1,21 @@
+<launch>
+  <!-- Launch camera0_node -->
+  <node name="camera0_node"
+        pkg="ros1_fantronics_endoscope"
+        type="supercamera_node"
+        output="screen">
+    <param name="camera_name" value="camera0"/>
+    <param name="bus"          value="1"/>   <!-- replace with actual bus# -->
+    <param name="device"       value="19"/>   <!-- replace with actual dev addr -->
+  </node>
+
+  <!-- Launch camera1_node -->
+  <node name="camera1_node"
+        pkg="ros1_fantronics_endoscope"
+        type="supercamera_node"
+        output="screen">
+    <param name="camera_name" value="camera1"/>
+    <param name="bus"          value="1"/>   <!-- replace with actual bus# -->
+    <param name="device"       value="18"/>   <!-- replace with actual dev addr -->
+  </node>
+</launch>
