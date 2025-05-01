@@ -44,8 +44,8 @@ Once you finished all the steps, clone this repo to ${YOUR WORKSPACE}/src by:
 git clone git@github.com:SMSL-Project/ros1_fantronics_endoscope.git
 ```
 
-build it with `catkin build` and run it with
+Build it with `catkin build`, source the workspace, and run it with
 ```bash
 rosrun ros1_fantronics_endoscope endocam
 ```
-you will find the images are streamed to rostopic `/supercamera/image_raw`
+You will find the images are streamed to rostopic `/supercamera/image_raw`
