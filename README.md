@@ -2,9 +2,6 @@
 
 A ROS Noetic node for the Geek szitman “supercamera” endoscope, delivering a live image stream on `/supercamera/image_raw`.
 
----
-
-
 
 ## Prerequisite
 
