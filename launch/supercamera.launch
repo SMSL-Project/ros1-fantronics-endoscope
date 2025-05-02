@@ -6,7 +6,7 @@
         output="screen">
     <param name="camera_name" value="camera0"/>
     <param name="bus"          value="1"/>   <!-- replace with actual bus# -->
-    <param name="device"       value="19"/>   <!-- replace with actual dev addr -->
+    <param name="device"       value="17"/>   <!-- replace with actual dev addr -->
   </node>
 
   <!-- Launch camera1_node -->
