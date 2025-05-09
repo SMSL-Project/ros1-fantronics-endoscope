@@ -11,6 +11,7 @@ sudo apt-get update
 sudo apt-get install -y \
     libusb-1.0-0-dev \
     pkg-config \
+    ros-noetic-compressed-image-transport
 ```
 
 Create the USB rule file so that the USB port can by default be accessed by non-root user
@@ -70,6 +71,31 @@ This will initialize two cameras with custom names and specific USB bus/device a
 - `/supercamera/left_camera/image_raw`
 - `/supercamera/right_camera/image_raw`
 
+### Compressed Image Streaming
+
+For better network performance, especially when streaming over LAN, you can use compressed image streaming. This significantly reduces bandwidth usage while maintaining acceptable image quality.
+
+To use compressed streaming:
+
+1. Launch with the compressed configuration:
+```bash
+roslaunch ros1_fantronics_endoscope endocam_compressed.launch
+```
+
+The images will be published on compressed topics:
+- `/supercamera/cam1/image_raw/compressed`
+- `/supercamera/cam2/image_raw/compressed`
+
+2. On the receiving PC, you can subscribe to the compressed topics and republish them as raw images if needed:
+```bash
+rosrun image_transport republish compressed in:=/supercamera/cam1/image_raw/compressed raw out:=/supercamera/cam1/image_raw
+```
+
+You can adjust the JPEG compression quality (1-100) in the launch file. Higher values give better quality but larger size:
+- 80 (default): Good balance between quality and size
+- 90+: Higher quality, larger size
+- 60-: Lower quality, smaller size
+
 ## Identifying USB Device Information
 
 To determine the USB bus number and device address for your endoscopes, you can use:
@@ -86,10 +112,9 @@ Bus 001 Device 010: ID 2ce3:3828 ...
 
 Use these bus and device numbers in your launch configuration.
 
-## Launch File Example
+## Launch File Examples
 
-Create a launch file for multiple cameras:
-
+### Basic Launch File
 ```xml
 <launch>
   <node name="endocam" pkg="ros1_fantronics_endoscope" type="endocam" output="screen">
@@ -101,5 +126,28 @@ Create a launch file for multiple cameras:
     <param name="camera1/bus" value="1"/>
     <param name="camera1/device" value="10"/>
   </node>
+</launch>
+```
+
+### Compressed Streaming Launch File
+```xml
+<launch>
+    <!-- Camera 1 -->
+    <node pkg="ros1_fantronics_endoscope" type="endocam_node" name="camera1" output="screen">
+        <param name="camera_name" value="cam1"/>
+        <param name="bus" value="1"/>
+        <param name="device" value="2"/>
+        <param name="use_compressed" value="true"/>
+        <param name="jpeg_quality" value="80"/>
+    </node>
+
+    <!-- Camera 2 -->
+    <node pkg="ros1_fantronics_endoscope" type="endocam_node" name="camera2" output="screen">
+        <param name="camera_name" value="cam2"/>
+        <param name="bus" value="1"/>
+        <param name="device" value="3"/>
+        <param name="use_compressed" value="true"/>
+        <param name="jpeg_quality" value="80"/>
+    </node>
 </launch>
 ```
