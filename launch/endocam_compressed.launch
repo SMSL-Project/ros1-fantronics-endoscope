@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Camera 1 -->
+    <node pkg="ros1_fantronics_endoscope" type="endocam_node" name="camera1" output="screen">
+        <param name="camera_name" value="cam1"/>
+        <param name="bus" value="1"/>
+        <param name="device" value="2"/>
+        <param name="use_compressed" value="true"/>
+        <param name="jpeg_quality" value="80"/>
+    </node>
+
+    <!-- Camera 2 -->
+    <node pkg="ros1_fantronics_endoscope" type="endocam_node" name="camera2" output="screen">
+        <param name="camera_name" value="cam2"/>
+        <param name="bus" value="1"/>
+        <param name="device" value="3"/>
+        <param name="use_compressed" value="true"/>
+        <param name="jpeg_quality" value="80"/>
+    </node>
+</launch> 

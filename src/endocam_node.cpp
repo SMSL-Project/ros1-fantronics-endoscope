@@ -2,6 +2,7 @@
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/Image.h>
+#include <compressed_image_transport/compressed_publisher.h>
 
 #include <libusb-1.0/libusb.h>
 #include <opencv2/imgcodecs.hpp>
@@ -344,6 +345,11 @@ private:
     std::unique_ptr<UsbSupercamera> usb_;
     std::unique_ptr<UPPCamera>      upp_;
     image_transport::Publisher      pub_;
+    compressed_image_transport::CompressedPublisher compressed_pub_;
+
+    // Compression parameters
+    int jpeg_quality_ = 80;  // JPEG quality (0-100)
+    bool use_compressed_ = true;  // Whether to use compressed transport
 
     // Corruption‐filter state
     std::string name_;
@@ -434,8 +440,23 @@ public:
         try {
             // USB layer
             usb_ = std::make_unique<UsbSupercamera>(bus_num, dev_addr);
-            // ROS publisher
-            pub_ = it.advertise("supercamera/" + name + "/image_raw", 1);
+            
+            // Get compression parameters from ROS parameter server
+            ros::NodeHandle pnh("~");
+            pnh.param("jpeg_quality", jpeg_quality_, jpeg_quality_);
+            pnh.param("use_compressed", use_compressed_, use_compressed_);
+            
+            // Create publishers
+            if (use_compressed_) {
+                compressed_pub_ = compressed_image_transport::CompressedPublisher(
+                    it.advertise("supercamera/" + name + "/image_raw/compressed", 1)
+                );
+                ROS_INFO("[%s] Using compressed image transport with JPEG quality %d", 
+                        name_.c_str(), jpeg_quality_);
+            } else {
+                pub_ = it.advertise("supercamera/" + name + "/image_raw", 1);
+                ROS_INFO("[%s] Using raw image transport", name_.c_str());
+            }
 
             // UPP layer: decode & publish with corruption check
             upp_ = std::make_unique<UPPCamera>(
@@ -453,8 +474,20 @@ public:
                     consecutive_drops_ = 0;
                     std_msgs::Header hdr;
                     hdr.stamp = ros::Time::now();
-                    auto msg = cv_bridge::CvImage(hdr, "bgr8", img).toImageMsg();
-                    pub_.publish(msg);
+                    
+                    if (use_compressed_) {
+                        // Publish compressed image
+                        sensor_msgs::CompressedImage compressed_msg;
+                        compressed_msg.header = hdr;
+                        compressed_msg.format = "jpeg";
+                        std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, jpeg_quality_};
+                        cv::imencode(".jpg", img, compressed_msg.data, params);
+                        compressed_pub_.publish(compressed_msg);
+                    } else {
+                        // Publish raw image
+                        auto msg = cv_bridge::CvImage(hdr, "bgr8", img).toImageMsg();
+                        pub_.publish(msg);
+                    }
                     
                     // Keep reference to last good frame
                     last_good_frame_ = img.clone();
