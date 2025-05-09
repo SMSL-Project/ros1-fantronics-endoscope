@@ -2,7 +2,8 @@
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/Image.h>
-#include <compressed_image_transport/compressed_publisher.h>
+#include <sensor_msgs/CompressedImage.h>
+#include <compressed_image_transport/compression_common.h>
 
 #include <libusb-1.0/libusb.h>
 #include <opencv2/imgcodecs.hpp>
@@ -345,7 +346,9 @@ private:
     std::unique_ptr<UsbSupercamera> usb_;
     std::unique_ptr<UPPCamera>      upp_;
     image_transport::Publisher      pub_;
-    compressed_image_transport::CompressedPublisher compressed_pub_;
+    // Remove this line:
+    // compressed_image_transport::CompressedPublisher compressed_pub_;
+    ros::Publisher                  compressed_pub_; // Use a standard publisher instead
 
     // Compression parameters
     int jpeg_quality_ = 80;  // JPEG quality (0-100)
@@ -446,11 +449,12 @@ public:
             pnh.param("jpeg_quality", jpeg_quality_, jpeg_quality_);
             pnh.param("use_compressed", use_compressed_, use_compressed_);
             
-            // Create publishers
+            // Create publishers - FIXED VERSION
             if (use_compressed_) {
-                compressed_pub_ = compressed_image_transport::CompressedPublisher(
-                    it.advertise("supercamera/" + name + "/image_raw/compressed", 1)
-                );
+                // Create a regular publisher for compressed images
+                ros::NodeHandle nh;
+                compressed_pub_ = nh.advertise<sensor_msgs::CompressedImage>(
+                    "supercamera/" + name + "/image_raw/compressed", 1);
                 ROS_INFO("[%s] Using compressed image transport with JPEG quality %d", 
                         name_.c_str(), jpeg_quality_);
             } else {
@@ -475,13 +479,18 @@ public:
                     std_msgs::Header hdr;
                     hdr.stamp = ros::Time::now();
                     
+                    // FIXED VERSION for publishing
                     if (use_compressed_) {
-                        // Publish compressed image
+                        // Create compressed image message
                         sensor_msgs::CompressedImage compressed_msg;
                         compressed_msg.header = hdr;
                         compressed_msg.format = "jpeg";
+                        
+                        // Encode the image with the specified quality
                         std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, jpeg_quality_};
                         cv::imencode(".jpg", img, compressed_msg.data, params);
+                        
+                        // Publish the compressed image
                         compressed_pub_.publish(compressed_msg);
                     } else {
                         // Publish raw image

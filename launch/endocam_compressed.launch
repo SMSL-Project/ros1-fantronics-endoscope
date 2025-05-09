@@ -1,20 +1,25 @@
-<?xml version="1.0"?>
 <launch>
-    <!-- Camera 1 -->
-    <node pkg="ros1_fantronics_endoscope" type="endocam_node" name="camera1" output="screen">
-        <param name="camera_name" value="cam1"/>
-        <param name="bus" value="1"/>
-        <param name="device" value="2"/>
-        <param name="use_compressed" value="true"/>
-        <param name="jpeg_quality" value="80"/>
-    </node>
+  <!-- Launch camera0_node -->
+  <node name="camera0_node"
+        pkg="ros1_fantronics_endoscope"
+        type="supercamera_node"
+        output="screen">
+    <param name="camera_name" value="camera0"/>
+    <param name="bus"          value="1"/>   <!-- replace with actual bus# -->
+    <param name="device"       value="20"/>   <!-- replace with actual dev addr -->
+    <param name="use_compressed" value="true"/>
+    <param name="jpeg_quality" value="80"/>
+  </node>
 
-    <!-- Camera 2 -->
-    <node pkg="ros1_fantronics_endoscope" type="endocam_node" name="camera2" output="screen">
-        <param name="camera_name" value="cam2"/>
-        <param name="bus" value="1"/>
-        <param name="device" value="3"/>
-        <param name="use_compressed" value="true"/>
-        <param name="jpeg_quality" value="80"/>
-    </node>
-</launch> 
+  <!-- Launch camera1_node -->
+  <node name="camera1_node"
+        pkg="ros1_fantronics_endoscope"
+        type="supercamera_node"
+        output="screen">
+    <param name="camera_name" value="camera1"/>
+    <param name="bus"          value="1"/>   <!-- replace with actual bus# -->
+    <param name="device"       value="25"/>   <!-- replace with actual dev addr -->
+    <param name="use_compressed" value="true"/>
+    <param name="jpeg_quality" value="80"/>
+  </node>
+</launch>
