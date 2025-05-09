@@ -399,17 +399,17 @@ private:
             return true;
         }
         
-        // 5) Check for severe compression artifacts
-        cv::Mat edges;
-        cv::Laplacian(gray, edges, CV_8U, 3);
-        cv::Scalar mean, stddev;
-        cv::meanStdDev(edges, mean, stddev);
+        // // 5) Check for severe compression artifacts
+        // cv::Mat edges;
+        // cv::Laplacian(gray, edges, CV_8U, 3);
+        // cv::Scalar mean, stddev;
+        // cv::meanStdDev(edges, mean, stddev);
         
-        if (stddev[0] < 5.0) {  // Low edge variance - may indicate a blurry or corrupted frame
-            ROS_WARN_THROTTLE(2.0, "[%s] Frame appears blurry or corrupted (edge stddev: %.1f)", 
-                            name_.c_str(), stddev[0]);
-            return true;
-        }
+        // if (stddev[0] < 5.0) {  // Low edge variance - may indicate a blurry or corrupted frame
+        //     ROS_WARN_THROTTLE(2.0, "[%s] Frame appears blurry or corrupted (edge stddev: %.1f)", 
+        //                     name_.c_str(), stddev[0]);
+        //     return true;
+        // }
         
         return false;
     }
