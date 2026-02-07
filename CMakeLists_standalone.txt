@@ -1,0 +1,62 @@
+# Standalone CMakeLists.txt for endoscope streaming applications
+# This file can be used to build the standalone applications without ROS/catkin
+#
+# Usage:
+#   mkdir build && cd build
+#   cmake ..
+#   make
+
+cmake_minimum_required(VERSION 3.0.2)
+project(endoscope_streaming)
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Find required packages
+find_package(OpenCV REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBUSB REQUIRED libusb-1.0)
+
+# Include directories
+include_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${OpenCV_INCLUDE_DIRS}
+  ${LIBUSB_INCLUDE_DIRS}
+)
+
+# Link directories
+link_directories(${LIBUSB_LIBRARY_DIRS})
+
+# TCP Streaming Server
+add_executable(endoscope_tcp_server src/endoscope_tcp_server.cpp)
+target_link_libraries(endoscope_tcp_server
+  ${OpenCV_LIBRARIES}
+  ${LIBUSB_LIBRARIES}
+  pthread
+)
+
+# UDP Streaming Server
+add_executable(endoscope_udp_server src/endoscope_udp_server.cpp)
+target_link_libraries(endoscope_udp_server
+  ${OpenCV_LIBRARIES}
+  ${LIBUSB_LIBRARIES}
+  pthread
+)
+
+# TCP Client
+add_executable(tcp_client src/tcp_client.cpp)
+target_link_libraries(tcp_client
+  ${OpenCV_LIBRARIES}
+  pthread
+)
+
+# Installation
+install(TARGETS endoscope_tcp_server endoscope_udp_server tcp_client
+  RUNTIME DESTINATION bin
+)
+
+# Print build information
+message(STATUS "Building standalone endoscope streaming applications")
+message(STATUS "OpenCV version: ${OpenCV_VERSION}")
+message(STATUS "LibUSB libraries: ${LIBUSB_LIBRARIES}")
