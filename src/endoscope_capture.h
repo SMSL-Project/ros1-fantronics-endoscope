@@ -1,0 +1,398 @@
+#pragma once
+
+#include <libusb-1.0/libusb.h>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+
+#include <cassert>
+#include <vector>
+#include <functional>
+#include <memory>
+#include <string>
+#include <iostream>
+
+using byteVector = std::vector<uint8_t>;
+
+class UsbSupercamera
+{
+    static constexpr uint16_t USB_VENDOR_ID = 0x2ce3;
+    static constexpr uint16_t USB_PRODUCT_ID = 0x3828;
+    static constexpr int INTERFACE_A_NUMBER = 0;
+    static constexpr int INTERFACE_B_NUMBER = 1;
+    static constexpr int INTERFACE_B_ALTERNATE_SETTING = 1;
+    static constexpr unsigned char ENDPOINT_1 = 1;
+    static constexpr unsigned char ENDPOINT_2 = 2;
+    static constexpr unsigned int USB_TIMEOUT = 1000; /* ms */
+
+    libusb_context *ctx = nullptr;
+    libusb_device_handle *handle = nullptr;
+    std::string device_path_;
+    uint8_t bus_number_ = 0;
+    uint8_t device_address_ = 0;
+    std::vector<std::function<void(const byteVector&)>> handlers_;
+
+    int usb_read(unsigned char endpoint, byteVector &buf)
+    {
+        int transferred;
+        buf.resize(0x1000);
+        int ret = libusb_bulk_transfer(
+            handle,
+            LIBUSB_ENDPOINT_IN | endpoint,
+            buf.data(),
+            buf.size(),
+            &transferred,
+            USB_TIMEOUT
+        );
+        if (ret != 0) {
+            buf.clear();
+            return ret;
+        }
+        buf.resize(transferred);
+        return 0;
+    }
+
+    int usb_write(unsigned char endpoint, const byteVector &buf)
+    {
+        int transferred;
+        return libusb_bulk_transfer(
+            handle,
+            LIBUSB_ENDPOINT_OUT | endpoint,
+            const_cast<uint8_t*>(buf.data()),
+            buf.size(),
+            &transferred,
+            USB_TIMEOUT
+        );
+    }
+
+    int setup(uint8_t bus_num = 0, uint8_t dev_addr = 0)
+    {
+        if (libusb_init(&ctx) < 0) return 1;
+        
+        if (bus_num != 0 && dev_addr != 0) {
+            // Open specific device by bus/address
+            libusb_device **devs = nullptr;
+            int cnt = libusb_get_device_list(ctx, &devs);
+            if (cnt < 0) return 1;
+            for (int i = 0; i < cnt; i++) {
+                libusb_device *dev = devs[i];
+                if (libusb_get_bus_number(dev) == bus_num &&
+                    libusb_get_device_address(dev) == dev_addr) {
+                    if (libusb_open(dev, &handle) == 0) {
+                        bus_number_   = bus_num;
+                        device_address_ = dev_addr;
+                        char path[128];
+                        snprintf(path, sizeof(path), "bus-%03d-dev-%03d", bus_num, dev_addr);
+                        device_path_ = path;
+                    }
+                    break;
+                }
+            }
+            libusb_free_device_list(devs, 1);
+            if (!handle) return 1;
+        } else {
+            // Fallback to VID/PID
+            handle = libusb_open_device_with_vid_pid(ctx, USB_VENDOR_ID, USB_PRODUCT_ID);
+            if (!handle) return 1;
+            libusb_device *dev = libusb_get_device(handle);
+            bus_number_    = libusb_get_bus_number(dev);
+            device_address_ = libusb_get_device_address(dev);
+            char path[128];
+            snprintf(path, sizeof(path), "bus-%03d-dev-%03d", bus_number_, device_address_);
+            device_path_ = path;
+        }
+        
+        libusb_reset_device(handle);
+        libusb_claim_interface(handle, INTERFACE_A_NUMBER);
+        libusb_claim_interface(handle, INTERFACE_B_NUMBER);
+        libusb_set_interface_alt_setting(handle, INTERFACE_B_NUMBER, INTERFACE_B_ALTERNATE_SETTING);
+        return 0;
+    }
+
+public:
+    UsbSupercamera(uint8_t bus_num = 0, uint8_t dev_addr = 0)
+    {
+        if (setup(bus_num, dev_addr) != 0)
+            throw std::runtime_error("Failed to init USB camera");
+        // sequence to start streaming
+        usb_write(ENDPOINT_2, byteVector{0xFF,0x55,0xFF,0x55,0xEE,0x10});
+        usb_write(ENDPOINT_1, byteVector{0xBB,0xAA,5,0,0});
+    }
+
+    ~UsbSupercamera()
+    {
+        if (handle) libusb_close(handle);
+        if (ctx)    libusb_exit(ctx);
+    }
+
+    int read_frame(byteVector &buf)
+    {
+        return usb_read(ENDPOINT_1, buf);
+    }
+    
+    void update()
+    {
+        byteVector buf;
+        if (read_frame(buf) == 0 && !buf.empty()) {
+            // Process the frame if read successfully
+            for (auto& handler : handlers_) {
+                handler(buf);
+            }
+        }
+    }
+    
+    void register_frame_handler(std::function<void(const byteVector&)> handler)
+    {
+        handlers_.push_back(std::move(handler));
+    }
+    
+    std::string get_device_path() const    { return device_path_; }
+    uint8_t     get_bus_number() const     { return bus_number_; }
+    uint8_t     get_device_address() const { return device_address_; }
+
+    static std::vector<std::pair<uint8_t, uint8_t>> list_devices(libusb_context *ctx = nullptr)
+    {
+        std::vector<std::pair<uint8_t, uint8_t>> result;
+        bool local_ctx = false;
+        if (!ctx) {
+            local_ctx = true;
+            if (libusb_init(&ctx) < 0) return result;
+        }
+        libusb_device **devs = nullptr;
+        int cnt = libusb_get_device_list(ctx, &devs);
+        if (cnt < 0) {
+            if (local_ctx) libusb_exit(ctx);
+            return result;
+        }
+        for (int i = 0; i < cnt; ++i) {
+            libusb_device *dev = devs[i];
+            libusb_device_descriptor desc;
+            if (libusb_get_device_descriptor(dev, &desc) == 0) {
+                if (desc.idVendor == USB_VENDOR_ID && desc.idProduct == USB_PRODUCT_ID) {
+                    result.emplace_back(
+                        libusb_get_bus_number(dev),
+                        libusb_get_device_address(dev)
+                    );
+                }
+            }
+        }
+        libusb_free_device_list(devs, 1);
+        if (local_ctx) libusb_exit(ctx);
+        return result;
+    }
+};
+
+class UPPCamera
+{
+    struct [[gnu::packed]] upp_usb_frame_t {
+        uint16_t magic;
+        uint8_t  cid;
+        uint16_t length;
+    };
+    struct [[gnu::packed]] upp_cam_frame_t {
+        uint8_t  fid;
+        uint8_t  cam_num;
+        unsigned char has_g        :1;
+        unsigned char button_press :1;
+        unsigned char other        :6;
+        uint32_t g_sensor;
+    };
+
+    byteVector          buffer_;
+    upp_cam_frame_t     last_header_{};
+    std::function<void(const cv::Mat&)> pic_cb_;
+    bool buffer_valid_ = false;
+    uint8_t last_fid_ = 0;
+    int consecutive_good_frames_ = 0;
+    int consecutive_bad_frames_ = 0;
+    static constexpr int MAX_BAD_FRAMES = 3;
+
+public:
+    UPPCamera(std::function<void(const cv::Mat&)> pic_callback)
+     : pic_cb_(std::move(pic_callback)) {}
+
+    // Enhanced validation for UPP frames
+    bool validate_frame_buffer(const byteVector &buffer) {
+        // 1. Check minimum size
+        if (buffer.size() < 1024) {
+            return false; // Too small to be a valid frame
+        }
+        
+        // 2. Check for valid JPEG markers (should start with FFD8 and end with FFD9)
+        if (buffer.size() < 4 || 
+            buffer[0] != 0xFF || buffer[1] != 0xD8 || 
+            buffer[buffer.size()-2] != 0xFF || buffer[buffer.size()-1] != 0xD9) {
+            return false;
+        }
+        
+        // 3. Check for reasonable JPEG structure (basic JPEG validation)
+        bool found_soi = false;
+        bool found_eoi = false;
+        size_t i = 0;
+        
+        // Find Start Of Image (SOI) marker
+        if (i < buffer.size() - 1 && buffer[i] == 0xFF && buffer[i+1] == 0xD8) {
+            found_soi = true;
+            i += 2;
+        }
+        
+        if (!found_soi) return false;
+        
+        // Scan through markers
+        while (i < buffer.size() - 1) {
+            // Find marker (every marker starts with 0xFF)
+            if (buffer[i] != 0xFF) {
+                i++;
+                continue;
+            }
+            
+            // Skip padding
+            while (i < buffer.size() && buffer[i] == 0xFF) i++;
+            
+            if (i >= buffer.size()) break;
+            
+            // End Of Image (EOI)
+            if (buffer[i] == 0xD9) {
+                found_eoi = true;
+                break;
+            }
+            
+            // For markers with length fields, skip the segment
+            if ((buffer[i] >= 0xC0 && buffer[i] <= 0xCF && buffer[i] != 0xC4 && buffer[i] != 0xC8) || 
+                (buffer[i] >= 0xDB && buffer[i] <= 0xFE)) {
+                if (i + 2 >= buffer.size()) break;
+                
+                int length = (buffer[i+1] << 8) | buffer[i+2];
+                i += length + 2;
+            } else {
+                i++;
+            }
+        }
+        
+        return found_soi && found_eoi;
+    }
+
+    void handle_upp_frame(const byteVector &data)
+    {
+        if (data.size() < sizeof(upp_usb_frame_t)) return;
+        auto usb_hdr = reinterpret_cast<const upp_usb_frame_t*>(data.data());
+        if (usb_hdr->magic != 0xBBAA || usb_hdr->cid != 7) return;
+
+        size_t cam_off = sizeof(upp_usb_frame_t);
+        if (data.size() < cam_off + sizeof(upp_cam_frame_t)) return;
+        auto cam_hdr = reinterpret_cast<const upp_cam_frame_t*>(data.data() + cam_off);
+        
+        // Check for valid camera header
+        if (cam_hdr->cam_num >= 2 || cam_hdr->other != 0) {
+            buffer_valid_ = false;
+            buffer_.clear();
+            consecutive_bad_frames_++;
+            return;
+        }
+
+        // frame boundary
+        if (!buffer_.empty() && cam_hdr->fid != last_header_.fid) {
+            if (buffer_valid_ && validate_frame_buffer(buffer_)) {
+                // Decode JPEG and call the callback
+                cv::Mat img = cv::imdecode(buffer_, cv::IMREAD_COLOR);
+                if (!img.empty()) {
+                    pic_cb_(img);
+                }
+                consecutive_good_frames_++;
+                consecutive_bad_frames_ = 0;
+            } else {
+                consecutive_bad_frames_++;
+                // If too many bad frames in a row, try to resync
+                if (consecutive_bad_frames_ >= MAX_BAD_FRAMES) {
+                    buffer_valid_ = false;
+                }
+            }
+            buffer_.clear();
+        }
+        
+        // Starting a new frame
+        if (buffer_.empty()) {
+            last_header_ = *cam_hdr;
+            buffer_valid_ = true;
+            
+            // Check for logical FID sequence
+            if (last_fid_ != 0 && ((last_fid_ + 1) % 256 != cam_hdr->fid)) {
+                // Out of sequence - could be frame drop or corruption
+                buffer_valid_ = false;
+            }
+            last_fid_ = cam_hdr->fid;
+            
+            // Validate field values
+            if (cam_hdr->cam_num >= 2 || cam_hdr->other != 0) {
+                buffer_valid_ = false;
+            }
+        }
+        
+        // Only append payload if buffer is considered valid
+        if (buffer_valid_) {
+            auto payload_begin = data.begin() + cam_off + sizeof(upp_cam_frame_t);
+            buffer_.insert(buffer_.end(), payload_begin, data.end());
+        }
+    }
+    
+    void update()
+    {
+        // No active polling needed - this class processes frames when handle_upp_frame is called
+    }
+};
+
+class EndoscopeCapture {
+private:
+    std::unique_ptr<UsbSupercamera> usb_;
+    std::unique_ptr<UPPCamera>      upp_;
+    cv::Mat                         last_frame_;
+    bool                            active_ = false;
+    std::string                     name_;
+
+public:
+    EndoscopeCapture(const std::string &name, uint8_t bus_num = 0, uint8_t dev_addr = 0)
+        : name_(name)
+    {
+        try {
+            // USB layer
+            usb_ = std::make_unique<UsbSupercamera>(bus_num, dev_addr);
+            
+            // UPP layer: decode frames
+            upp_ = std::make_unique<UPPCamera>(
+                [this](const cv::Mat &img) {
+                    last_frame_ = img.clone();
+                }
+            );
+            
+            // Connect USB camera to UPP parser
+            usb_->register_frame_handler([this](const byteVector &data) {
+                upp_->handle_upp_frame(data);
+            });
+
+            active_ = true;
+            std::cout << "Camera '" << name_ << "' initialized: bus=" 
+                      << (int)usb_->get_bus_number() 
+                      << " addr=" << (int)usb_->get_device_address()
+                      << " path=" << usb_->get_device_path() << std::endl;
+        }
+        catch (const std::exception &e) {
+            std::cerr << "EndoscopeCapture '" << name_ << "' init failed: " << e.what() << std::endl;
+        }
+    }
+
+    bool is_active() const { return active_; }
+
+    void update() {
+        if (!active_) return;
+        if (usb_) {
+            usb_->update(); // This will read frames and pass to UPP via registered handler
+        }
+    }
+    
+    cv::Mat get_last_frame() const {
+        return last_frame_;
+    }
+    
+    bool has_frame() const {
+        return !last_frame_.empty();
+    }
+};

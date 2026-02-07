@@ -2,6 +2,16 @@
 
 A ROS Noetic node for the Geek szitman "supercamera" endoscope, delivering a live image stream. Supports multiple endoscopes simultaneously.
 
+## 🆕 Standalone Applications (No ROS Required)
+
+This repository now includes **standalone applications** that can stream endoscope images via **TCP/IP or UDP** without requiring ROS! See [STANDALONE_README.md](STANDALONE_README.md) for details.
+
+- **endoscope_tcp_server**: Stream images over TCP/IP
+- **endoscope_udp_server**: Stream images over UDP
+- **tcp_client**: Example client to receive streams
+
+Perfect for embedded systems, edge devices, or any application where ROS is not available.
+
 ## Prerequisite
 
 First install `libusb-1.0-0-dev` and `pkg-config` if you haven't done so
