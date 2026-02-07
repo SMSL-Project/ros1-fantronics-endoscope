@@ -106,8 +106,8 @@ class TcpImageClient:
                 if elapsed >= 5.0:
                     fps = frame_count / elapsed
                     print(f"Receiving at {fps:.1f} FPS")
-                    frame_count = 0
                     last_stats_time = current_time
+                    frame_count = 0
                 
                 # Check for quit (press 'q' or ESC)
                 key = cv2.waitKey(1) & 0xFF

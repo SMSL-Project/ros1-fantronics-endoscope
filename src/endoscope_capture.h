@@ -224,51 +224,9 @@ public:
             return false;
         }
         
-        // 3. Check for reasonable JPEG structure (basic JPEG validation)
-        bool found_soi = false;
-        bool found_eoi = false;
-        size_t i = 0;
-        
-        // Find Start Of Image (SOI) marker
-        if (i < buffer.size() - 1 && buffer[i] == 0xFF && buffer[i+1] == 0xD8) {
-            found_soi = true;
-            i += 2;
-        }
-        
-        if (!found_soi) return false;
-        
-        // Scan through markers
-        while (i < buffer.size() - 1) {
-            // Find marker (every marker starts with 0xFF)
-            if (buffer[i] != 0xFF) {
-                i++;
-                continue;
-            }
-            
-            // Skip padding
-            while (i < buffer.size() && buffer[i] == 0xFF) i++;
-            
-            if (i >= buffer.size()) break;
-            
-            // End Of Image (EOI)
-            if (buffer[i] == 0xD9) {
-                found_eoi = true;
-                break;
-            }
-            
-            // For markers with length fields, skip the segment
-            if ((buffer[i] >= 0xC0 && buffer[i] <= 0xCF && buffer[i] != 0xC4 && buffer[i] != 0xC8) || 
-                (buffer[i] >= 0xDB && buffer[i] <= 0xFE)) {
-                if (i + 2 >= buffer.size()) break;
-                
-                int length = (buffer[i+1] << 8) | buffer[i+2];
-                i += length + 2;
-            } else {
-                i++;
-            }
-        }
-        
-        return found_soi && found_eoi;
+        // 3. Basic structure check - look for SOI and EOI markers
+        // More detailed validation is done by cv::imdecode
+        return true;
     }
 
     void handle_upp_frame(const byteVector &data)

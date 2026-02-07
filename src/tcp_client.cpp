@@ -144,8 +144,8 @@ public:
             if (elapsed >= 5) {
                 double fps = frame_count / (double)elapsed;
                 std::cout << "Receiving at " << fps << " FPS" << std::endl;
-                frame_count = 0;
                 last_stats = now;
+                frame_count = 0;
             }
             
             // Check for quit
