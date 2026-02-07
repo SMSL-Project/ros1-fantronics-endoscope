@@ -40,7 +40,18 @@ sudo udevadm trigger
 
 ### Building Standalone Applications Only
 
-If you only want the standalone applications without ROS:
+If you only want the standalone applications **without ROS**:
+
+**Option 1: Using the standalone CMakeLists.txt (recommended)**
+
+```bash
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ../CMakeLists_standalone.txt
+make
+```
+
+**Option 2: Using the main CMakeLists.txt**
 
 ```bash
 mkdir build
@@ -136,6 +147,8 @@ The UDP server sends frames to a specified target IP and port.
 
 A simple example client that connects to the TCP server and displays the stream.
 
+**C++ Client:**
+
 ```bash
 ./tcp_client [server_ip] [port] [output_dir]
 ```
@@ -158,8 +171,24 @@ A simple example client that connects to the TCP server and displays the stream.
 ./tcp_client 192.168.1.50 8888 /tmp/frames
 ```
 
+**Python Client:**
+
+A Python client is also available in `examples/tcp_client.py`:
+
+```bash
+# Install dependencies
+pip3 install opencv-python numpy
+
+# Run the client
+python3 examples/tcp_client.py [server_ip] [port]
+```
+
 **Controls:**
-- Press 'q' to quit
+- Press 'q' or ESC to quit
+
+**More Examples:**
+
+See the `examples/` directory for more client implementations and examples in different languages.
 
 ## Identifying USB Device
 
