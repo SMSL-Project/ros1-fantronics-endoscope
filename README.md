@@ -4,13 +4,18 @@ A ROS Noetic node for the Geek szitman "supercamera" endoscope, delivering a liv
 
 ## 🆕 Standalone Applications (No ROS Required)
 
-This repository now includes **standalone applications** that can stream endoscope images via **TCP/IP or UDP** without requiring ROS! See [STANDALONE_README.md](STANDALONE_README.md) for details.
+This repository now includes **standalone applications** that can stream endoscope images via **TCP/IP or UDP** without requiring ROS!
 
 - **endoscope_tcp_server**: Stream images over TCP/IP
 - **endoscope_udp_server**: Stream images over UDP
 - **tcp_client**: Example client to receive streams
 
 Perfect for embedded systems, edge devices, or any application where ROS is not available.
+
+**📚 Documentation:**
+- [QUICKSTART.md](QUICKSTART.md) - Get started in 5 minutes
+- [STANDALONE_README.md](STANDALONE_README.md) - Complete documentation
+- [examples/README.md](examples/README.md) - Client examples in multiple languages
 
 ## Prerequisite
 
